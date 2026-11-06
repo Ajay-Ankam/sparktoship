@@ -12,9 +12,17 @@
  * over the target atomically (single syscall on Windows NTFS via
  * fs.renameSync with the MOVEFILE_REPLACE_EXISTING flag provided by Node).
  *
- * Locking: proper-lockfile creates a lock directory (advisory) next to each
- * file. This guards against two processes reading stale data, applying
- * independent mutations, and racing to write.
+ * Per-collection locking: proper-lockfile creates a lock directory (advisory)
+ * next to each file. This guards against two processes reading stale data,
+ * applying independent mutations, and racing to write.
+ *
+ * Idempotency lock: `withIdempotencyLock` provides a single coarse-grained
+ * lock (idempotency.lock) that must be held for the entire
+ * check-request → create-entity → record-request sequence. This prevents
+ * two concurrent processes that both pass the initial checkRequest from each
+ * creating a duplicate entity before either has recorded its request entry.
+ * Lock ordering: idempotency.lock is always acquired BEFORE any
+ * collection lock, ensuring no deadlock.
  */
 
 import fs from 'fs';
@@ -54,6 +62,11 @@ export function ensureDataDir(): void {
   ];
   for (const col of collections) {
     ensureFile(collectionPath(dir, col), []);
+  }
+  // Ensure the idempotency lock sentinel file exists.
+  const idempotencyLockFile = path.join(dir, 'idempotency.lock');
+  if (!fs.existsSync(idempotencyLockFile)) {
+    fs.writeFileSync(idempotencyLockFile, '', 'utf8');
   }
 }
 
@@ -121,6 +134,36 @@ export function readCollectionSync<K extends CollectionName>(name: K): StoreData
   ensureDataDir();
   const dir = getDataDir();
   return readCollection(dir, name);
+}
+
+// ─── Idempotency lock ─────────────────────────────────────────────────────────
+
+/**
+ * Acquire the single idempotency lock before running `fn`.
+ *
+ * All operations that follow the check-request → create-entity →
+ * record-request pattern MUST acquire this lock first so that the entire
+ * sequence is atomic relative to other callers, including those in separate
+ * OS processes.
+ *
+ * Lock ordering rule: idempotency.lock is always acquired BEFORE any
+ * collection lock. Never acquire idempotency.lock while already holding a
+ * collection lock.
+ */
+export async function withIdempotencyLock<R>(fn: () => Promise<R>): Promise<R> {
+  ensureDataDir();
+  const dir = getDataDir();
+  const lockFile = path.join(dir, 'idempotency.lock');
+
+  const release = await lockfile.lock(lockFile, {
+    retries: { retries: 10, minTimeout: 50, maxTimeout: 300 },
+    stale: 15_000,
+  });
+  try {
+    return await fn();
+  } finally {
+    await release();
+  }
 }
 
 // ─── Hashing for duplicate detection ─────────────────────────────────────────

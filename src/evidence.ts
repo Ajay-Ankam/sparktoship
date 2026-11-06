@@ -37,11 +37,22 @@ function validateGitCommit(sha: string): string {
   return sha;
 }
 
+function validateExitCode(code: number): number {
+  if (!Number.isInteger(code)) {
+    throw new Error(
+      `Exit code must be an integer, got: ${JSON.stringify(code)}. ` +
+        `Pass a whole number such as 0 or 1.`,
+    );
+  }
+  return code;
+}
+
 // ─── Operations ──────────────────────────────────────────────────────────────
 
 export async function addEvidence(input: AddEvidenceInput): Promise<Evidence> {
   validateEvidenceStatus(input.status);
   validateGitCommit(input.gitCommit);
+  validateExitCode(input.exitCode);
 
   // Confirm the task exists before writing evidence.
   requireTask(input.taskId);

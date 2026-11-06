@@ -1,6 +1,6 @@
 import { v4 as uuidv4 } from 'uuid';
-import { withCollection, readCollectionSync } from './store.js';
-import { checkRequest, recordRequest, requireProject } from './projects.js';
+import { withCollection, readCollectionSync, withIdempotencyLock } from './store.js';
+import { findRequest, writeRequestEntry, requireProject } from './projects.js';
 import {
   ACTIVE_STATUSES,
   PIPELINE_TRANSITIONS,
@@ -41,44 +41,54 @@ function validateWorkflowType(wt: string): WorkflowType {
 export async function createTask(input: CreateTaskInput): Promise<CreateTaskResult> {
   const { requestId } = input;
 
-  if (requestId) {
-    const existing = await checkRequest('create_task', requestId, input);
-    if (existing) {
-      const tasks = readCollectionSync('tasks');
-      const task = tasks.find((t) => t.id === existing.resultId);
-      if (!task) throw new Error(`Request log points to missing task ${existing.resultId}`);
-      return { task, created: false };
-    }
-  }
-
   validateWorkflowType(input.workflowType);
 
-  // Validate project exists.
+  if (requestId) {
+    // Acquire the idempotency lock so that check-request → create-entity →
+    // record-request is atomic relative to any concurrent caller.
+    return withIdempotencyLock(async () => {
+      const prior = findRequest('create_task', requestId, input);
+      if (prior) {
+        const tasks = readCollectionSync('tasks');
+        const task = tasks.find((t) => t.id === prior.resultId);
+        if (!task) throw new Error(`Request log points to missing task ${prior.resultId}`);
+        return { task, created: false };
+      }
+
+      const project = requireProject(input.projectId);
+      const task = buildTask(input, project.id, input.workspacePath ?? project.workspacePath);
+
+      await withCollection('tasks', (tasks) => ({ data: [...tasks, task], result: null }));
+      await writeRequestEntry('create_task', requestId, input, task.id);
+
+      return { task, created: true };
+    });
+  }
+
   const project = requireProject(input.projectId);
+  const task = buildTask(input, project.id, input.workspacePath ?? project.workspacePath);
+  await withCollection('tasks', (tasks) => ({ data: [...tasks, task], result: null }));
+  return { task, created: true };
+}
 
+function buildTask(
+  input: CreateTaskInput,
+  projectId: string,
+  workspacePath: string,
+): Task {
   const now = new Date().toISOString();
-  const id = uuidv4();
-
-  const task: Task = {
-    id,
-    projectId: project.id,
+  return {
+    id: uuidv4(),
+    projectId,
     title: input.title,
     workflowType: input.workflowType,
     scope: input.scope,
     acceptanceCriteria: input.acceptanceCriteria,
     status: 'proposed',
-    workspacePath: input.workspacePath ?? project.workspacePath,
+    workspacePath,
     createdAt: now,
     updatedAt: now,
   };
-
-  await withCollection('tasks', (tasks) => ({ data: [...tasks, task], result: null }));
-
-  if (requestId) {
-    await recordRequest('create_task', requestId, input, id);
-  }
-
-  return { task, created: true };
 }
 
 export function listTasks(projectId?: string): Task[] {

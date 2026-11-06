@@ -1,5 +1,5 @@
 import { v4 as uuidv4 } from 'uuid';
-import { withCollection, readCollectionSync, hashInput } from './store.js';
+import { withCollection, readCollectionSync, hashInput, withIdempotencyLock } from './store.js';
 import type { Project, RequestLogEntry } from './types.js';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
@@ -23,38 +23,47 @@ export async function createProject(
 ): Promise<CreateProjectResult> {
   const { name, description, workspacePath, requestId } = input;
 
-  // Duplicate protection: if a requestId was supplied, check for prior execution.
   if (requestId) {
-    const existing = await checkRequest('create_project', requestId, input);
-    if (existing) {
-      const projects = readCollectionSync('projects');
-      const project = projects.find((p) => p.id === existing.resultId);
-      if (!project) throw new Error(`Request log points to missing project ${existing.resultId}`);
-      return { project, created: false };
-    }
+    // Acquire the idempotency lock so that check-request → create-entity →
+    // record-request is atomic relative to any other caller (same process or
+    // separate OS process) using the same requestId.
+    return withIdempotencyLock(async () => {
+      // Re-read inside the lock; a concurrent caller may have just written.
+      const prior = findRequest('create_project', requestId, input);
+      if (prior) {
+        const projects = readCollectionSync('projects');
+        const project = projects.find((p) => p.id === prior.resultId);
+        if (!project) throw new Error(`Request log points to missing project ${prior.resultId}`);
+        return { project, created: false };
+      }
+
+      const project = buildProject(name, description, workspacePath);
+
+      await withCollection('projects', (projects) => ({
+        data: [...projects, project],
+        result: null,
+      }));
+      await writeRequestEntry('create_project', requestId, input, project.id);
+
+      return { project, created: true };
+    });
   }
 
-  const now = new Date().toISOString();
-  const id = uuidv4();
-
-  const project: Project = {
-    id,
-    name,
-    description,
-    workspacePath,
-    createdAt: now,
-    updatedAt: now,
-  };
-
-  await withCollection('projects', (projects) => {
-    return { data: [...projects, project], result: null };
-  });
-
-  if (requestId) {
-    await recordRequest('create_project', requestId, input, id);
-  }
-
+  const project = buildProject(name, description, workspacePath);
+  await withCollection('projects', (projects) => ({
+    data: [...projects, project],
+    result: null,
+  }));
   return { project, created: true };
+}
+
+function buildProject(
+  name: string,
+  description: string,
+  workspacePath: string,
+): Project {
+  const now = new Date().toISOString();
+  return { id: uuidv4(), name, description, workspacePath, createdAt: now, updatedAt: now };
 }
 
 export function listProjects(): Project[] {
@@ -77,11 +86,17 @@ export function requireProject(idOrName: string): Project {
 
 // ─── Request-log helpers (shared with other modules) ─────────────────────────
 
-export async function checkRequest(
+/**
+ * Synchronous read of the request log. Must only be called while the
+ * idempotency lock is held (enforced by convention, not type system).
+ *
+ * Returns the matching entry, or null if none. Throws on hash conflict.
+ */
+export function findRequest(
   operation: string,
   requestId: string,
   input: unknown,
-): Promise<RequestLogEntry | null> {
+): RequestLogEntry | null {
   const requests = readCollectionSync('requests');
   const prior = requests.find(
     (r) => r.requestId === requestId && r.operation === operation,
@@ -98,7 +113,11 @@ export async function checkRequest(
   return prior;
 }
 
-export async function recordRequest(
+/**
+ * Append a new entry to the request log. Must only be called while the
+ * idempotency lock is held.
+ */
+export async function writeRequestEntry(
   operation: string,
   requestId: string,
   input: unknown,
@@ -115,4 +134,25 @@ export async function recordRequest(
     data: [...requests, entry],
     result: null,
   }));
+}
+
+// ─── Deprecated shims (kept for internal callers during migration) ────────────
+
+/** @deprecated Use findRequest inside withIdempotencyLock instead. */
+export async function checkRequest(
+  operation: string,
+  requestId: string,
+  input: unknown,
+): Promise<RequestLogEntry | null> {
+  return findRequest(operation, requestId, input);
+}
+
+/** @deprecated Use writeRequestEntry inside withIdempotencyLock instead. */
+export async function recordRequest(
+  operation: string,
+  requestId: string,
+  input: unknown,
+  resultId: string,
+): Promise<void> {
+  return writeRequestEntry(operation, requestId, input, resultId);
 }

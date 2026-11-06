@@ -46,6 +46,20 @@ function exit(message: string): never {
   process.exit(1);
 }
 
+/** Commander option parser for integer arguments. Rejects NaN, floats, and non-numeric strings. */
+function parseIntArg(value: string): number {
+  // Require a pure integer string: optional leading minus, then only digits.
+  // This rejects "1.5", "1.0", "garbage", etc. before parseInt sees them.
+  if (!/^-?\d+$/.test(value.trim())) {
+    throw new Error(`Expected an integer, got: "${value}"`);
+  }
+  const n = parseInt(value, 10);
+  if (!Number.isInteger(n)) {
+    throw new Error(`Expected an integer, got: "${value}"`);
+  }
+  return n;
+}
+
 function print(obj: unknown): void {
   console.log(JSON.stringify(obj, null, 2));
 }
@@ -229,7 +243,7 @@ evidence
   .requiredOption('--task <taskId>', 'Task ID')
   .requiredOption('--command <command>', 'Command that was run')
   .requiredOption('--dir <workingDirectory>', 'Working directory where command ran')
-  .requiredOption('--exit <exitCode>', 'Process exit code', parseInt)
+  .requiredOption('--exit <exitCode>', 'Process exit code (integer)', parseIntArg)
   .requiredOption('--summary <resultSummary>', 'Human-readable result summary')
   .requiredOption(
     '--status <status>',
