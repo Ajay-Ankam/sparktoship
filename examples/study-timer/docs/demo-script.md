@@ -40,20 +40,20 @@ Open `http://localhost:5173` in a browser.
 "When time runs out, the clock turns green, the banner appears, and the progress bar reaches 100%."
 
 *Point to the ARIA progressbar:*  
-"The progressbar's `aria-valuenow` is updated on every frame, so screen readers track the live percentage — not just the visual fill."
+"The progressbar exposes an updated `aria-valuenow` on every frame — verified via an independent mocked-DOM probe in the reviewer's worktree: 0 at idle, the live percentage while running, 0 after reset, 100 at completion. Screen-reader behavior has not been verified."
 
 **[35s]**  
-*Click Reset.*  
-"Reset brings everything back to idle. The duration input is editable again."
+*Click Reset, then set duration to `2:00` and click Start.*  
+"Now switch to a different tab for 10–15 seconds, then come back."
 
-**[40s]**  
-*In browser DevTools, open the Network tab, throttle to Offline, switch away from the tab for a few seconds, switch back.*  
-"The timing uses `Date.now()` snapshots, not tick counting. Even if the tab is hidden — which pauses `requestAnimationFrame` — the wall-clock diff stays accurate."
+**[42s]**  
+*Switch back to the timer tab.*  
+"The remaining time reflects the full time you were away. The timer uses `Date.now()` snapshots — `remainingAtStart − (now − startedAt)` — not animation frames. `requestAnimationFrame` stops when a tab is hidden, but the wall-clock diff doesn't."
 
-> **Note:** The tab-hide behavior shown here is live browser behavior and was not verified in automated checks. The unit tests simulate this with a mocked clock.
+> **Note:** This step describes observed browser behavior. It has not been verified by automated checks in this session. The unit tests simulate the same scenario — 13 minutes of clock advance with no ticks — with a mocked clock.
 
 **[55s]**  
-"39 automated tests cover state transitions, pause/resume accuracy, edge cases at the deadline, and the ARIA values — all passing on Node, no browser required."
+"39 automated tests cover state transitions, pause/resume accuracy, and edge cases at the deadline — all passing on Node, no browser required. ARIA value correctness was verified by an independent mocked-DOM probe in the reviewer's worktree, not by the Node test suite."
 
 **[60s]**  
 "Source is in `examples/study-timer/` — `timer.ts` is pure logic with no DOM, `main.ts` wires it to the page."
@@ -65,6 +65,6 @@ Open `http://localhost:5173` in a browser.
 | Command | Evidence record | Result |
 |---|---|---|
 | `npm install` | `33dda682` (commit `6be1f3f`) | ✅ exit 0 |
-| `npm run dev` | `55b49c39` (not_run — not verified) | starts at port 5173 |
+| `npm run dev` | `f0a0cbf7` (commit `5d3167e` — server startup only, not browser) | ✅ VITE v5.4.21 ready at http://localhost:5173/ |
 | `npm test` | `a6362358` (commit `f1436b9`) | ✅ 39/39 |
 | `npm run build` | `86b4ace5` (commit `f1436b9`) | ✅ clean |

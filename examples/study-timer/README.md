@@ -9,7 +9,7 @@ A browser-based study timer built with Vite and vanilla TypeScript.
 - **Accurate timing** — remaining time is computed from wall-clock timestamps (`Date.now()`), not by counting animation frames; stays correct if the browser tab is inactive or the device sleeps
 - **Visible completion state** — clock turns green, a banner appears, and the progress bar fills to 100%
 - **ARIA-labelled controls** — the progressbar exposes `aria-valuenow` on every frame; buttons and inputs carry `aria-label` attributes
-- **Responsive dark-theme layout** — works on desktop and mobile viewports; a `min-width: 360px` breakpoint adjusts padding
+- **Responsive dark-theme layout** — works on desktop and mobile viewports; a `max-width: 360px` breakpoint adjusts padding
 
 ## Setup
 
