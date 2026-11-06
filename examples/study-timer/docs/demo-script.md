@@ -1,4 +1,4 @@
-# Demo Script — Study Timer (60 seconds)
+# Demo Script — Study Timer (~70 seconds)
 
 **Purpose:** Walk through the study timer's core features in a live demo.  
 **Prerequisite:** `npm install` and `npm run dev` already running at `http://localhost:5173`.
