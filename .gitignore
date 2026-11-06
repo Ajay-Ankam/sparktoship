@@ -7,3 +7,6 @@ node_modules/
 *.log
 dist/
 coverage/
+# SparkToShip runtime data (machine-local, never commit)
+.sparktoship/
+.sparktoship*/

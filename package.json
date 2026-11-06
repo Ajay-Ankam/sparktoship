@@ -1,0 +1,35 @@
+{
+  "name": "sparktoship",
+  "version": "0.1.0",
+  "description": "CLI for SparkToShip project and task management",
+  "bin": {
+    "sts": "./dist/cli.js"
+  },
+  "scripts": {
+    "build": "tsc",
+    "typecheck": "tsc --noEmit",
+    "test": "jest",
+    "test:coverage": "jest --coverage",
+    "dev": "ts-node src/cli.ts",
+    "clean": "rimraf dist coverage"
+  },
+  "keywords": ["sparktoship", "cli", "workflow"],
+  "author": "ajay3ankam@gmail.com",
+  "license": "MIT",
+  "dependencies": {
+    "commander": "^12.1.0",
+    "proper-lockfile": "^4.1.2",
+    "uuid": "^10.0.0"
+  },
+  "devDependencies": {
+    "@types/jest": "^29.5.14",
+    "@types/node": "^22.0.0",
+    "@types/proper-lockfile": "^4.1.4",
+    "@types/uuid": "^10.0.0",
+    "jest": "^29.7.0",
+    "rimraf": "^6.0.1",
+    "ts-jest": "^29.2.5",
+    "ts-node": "^10.9.2",
+    "typescript": "^5.5.4"
+  }
+}
