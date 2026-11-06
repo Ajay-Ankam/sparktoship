@@ -46,16 +46,16 @@ Open `http://localhost:5173` in a browser.
 *Click Reset, then set duration to `2:00` and click Start.*  
 "Now switch to a different tab for 10–15 seconds, then come back."
 
-**[42s]**  
+**[50s]**  
 *Switch back to the timer tab.*  
-"The remaining time reflects the full time you were away. The timer uses `Date.now()` snapshots — `remainingAtStart − (now − startedAt)` — not animation frames. `requestAnimationFrame` stops when a tab is hidden, but the wall-clock diff doesn't."
+"If the remaining time dropped by roughly the time you were away, that's the wall-clock diff — `remainingAtStart − (now − startedAt)` — not animation frames. `requestAnimationFrame` stops when a tab is hidden; the diff doesn't."
 
-> **Note:** This step describes observed browser behavior. It has not been verified by automated checks in this session. The unit tests simulate the same scenario — 13 minutes of clock advance with no ticks — with a mocked clock.
+> **Note:** This is an intended manual verification step; real background-tab behavior has not been verified in a live browser. Existing checks use mocked clocks/DOM.
 
-**[55s]**  
+**[62s]**  
 "39 automated tests cover state transitions, pause/resume accuracy, and edge cases at the deadline — all passing on Node, no browser required. ARIA value correctness was verified by an independent mocked-DOM probe in the reviewer's worktree, not by the Node test suite."
 
-**[60s]**  
+**[68s]**  
 "Source is in `examples/study-timer/` — `timer.ts` is pure logic with no DOM, `main.ts` wires it to the page."
 
 ---
