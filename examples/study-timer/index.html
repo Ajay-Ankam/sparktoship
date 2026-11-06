@@ -1,0 +1,67 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Study Timer</title>
+    <meta name="description" content="A simple, accurate study timer with pause, resume and configurable duration." />
+  </head>
+  <body>
+    <main>
+      <article class="card" role="main" aria-label="Study timer">
+
+        <h1>Study Timer</h1>
+
+        <div class="duration-row">
+          <label for="duration-input">Duration (MM:SS or minutes)</label>
+          <input
+            id="duration-input"
+            type="text"
+            value="25:00"
+            aria-label="Study duration"
+            placeholder="25:00"
+            autocomplete="off"
+          />
+        </div>
+
+        <div class="clock-wrap" aria-live="polite" aria-atomic="true">
+          <div
+            id="clock"
+            class="clock"
+            data-state="idle"
+            role="timer"
+            aria-label="Remaining time"
+          >25:00</div>
+          <div
+            id="status-label"
+            class="status-label"
+            data-state="idle"
+            aria-live="polite"
+          ></div>
+        </div>
+
+        <div class="progress-wrap" role="progressbar" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0" aria-label="Timer progress">
+          <div id="progress-fill" class="progress-fill" data-state="idle"></div>
+        </div>
+
+        <div
+          id="completion-banner"
+          class="completion-banner"
+          role="status"
+          aria-live="assertive"
+        >
+          🎉 Session complete — take a break!
+        </div>
+
+        <div class="btn-row">
+          <button id="btn-start"  type="button" aria-label="Start timer">Start</button>
+          <button id="btn-pause"  type="button" aria-label="Pause timer"  style="display:none">Pause</button>
+          <button id="btn-resume" type="button" aria-label="Resume timer" style="display:none">Resume</button>
+          <button id="btn-reset"  type="button" aria-label="Reset timer"  disabled>Reset</button>
+        </div>
+
+      </article>
+    </main>
+    <script type="module" src="/src/main.ts"></script>
+  </body>
+</html>
