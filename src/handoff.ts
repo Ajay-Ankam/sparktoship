@@ -55,12 +55,14 @@ export async function createHandoff(
 ): Promise<CreateHandoffResult> {
   const { requestId } = input;
 
-  // Validate eagerly (before acquiring any lock) so errors surface fast.
-  validateHandoffInput(input);
-
   if (requestId) {
     // Acquire the idempotency lock so that check-request → create-entity →
     // record-request is atomic relative to any concurrent caller.
+    //
+    // IMPORTANT: the request-log lookup happens FIRST, before validation.
+    // This ensures that retrying a saved handoff (e.g. after the task has
+    // advanced past 'awaiting_review') returns the cached result rather than
+    // failing validation on the now-changed task status.
     return withIdempotencyLock(async () => {
       const prior = findRequest('create_handoff', requestId, input);
       if (prior) {
@@ -71,6 +73,9 @@ export async function createHandoff(
         return { handoff, created: false };
       }
 
+      // No prior entry — validate before creating.
+      validateHandoffInput(input);
+
       const handoff = buildHandoff(input, requestId);
       await withCollection('handoffs', (all) => ({ data: [...all, handoff], result: null }));
       await writeRequestEntry('create_handoff', requestId, input, handoff.id);
@@ -79,6 +84,8 @@ export async function createHandoff(
     });
   }
 
+  // No requestId: validate eagerly so errors surface immediately.
+  validateHandoffInput(input);
   const handoff = buildHandoff(input, '');
   await withCollection('handoffs', (all) => ({ data: [...all, handoff], result: null }));
   return { handoff, created: true };

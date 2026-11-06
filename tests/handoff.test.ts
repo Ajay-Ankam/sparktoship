@@ -127,4 +127,52 @@ describe('handoff', () => {
     expect(listHandoffs(task.id).length).toBe(1);
     expect(listHandoffs('other-id').length).toBe(0);
   });
+
+  it('regression: retrying a saved handoff after task advances to completed returns cached result', async () => {
+    const { task, ev } = await setupReadyForHandoff();
+    const input = {
+      taskId: task.id,
+      targetAgent: 'sparktoship-reviewer',
+      commit: 'abc1234567',
+      evidenceIds: [ev.id],
+      limitations: [],
+      requestId: 'retry-handoff-completed',
+    };
+
+    // Create the handoff while task is in awaiting_review.
+    const r1 = await createHandoff(input);
+    expect(r1.created).toBe(true);
+
+    // Advance task to completed.
+    await advanceTask(task.id);
+
+    // Retry with identical input + requestId — must return the cached handoff,
+    // not throw "must be in awaiting_review".
+    const r2 = await createHandoff(input);
+    expect(r2.created).toBe(false);
+    expect(r2.handoff.id).toBe(r1.handoff.id);
+  });
+
+  it('regression: retrying a saved handoff after task is blocked returns cached result', async () => {
+    const { task, ev } = await setupReadyForHandoff();
+    const { blockTask } = await import('../src/tasks');
+    const input = {
+      taskId: task.id,
+      targetAgent: 'sparktoship-reviewer',
+      commit: 'abc1234567',
+      evidenceIds: [ev.id],
+      limitations: [],
+      requestId: 'retry-handoff-blocked',
+    };
+
+    const r1 = await createHandoff(input);
+    expect(r1.created).toBe(true);
+
+    // Block the task after handoff was created.
+    await blockTask(task.id, 'Reviewer flagged an issue');
+
+    const r2 = await createHandoff(input);
+    expect(r2.created).toBe(false);
+    expect(r2.handoff.id).toBe(r1.handoff.id);
+  });
 });
