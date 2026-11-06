@@ -73,6 +73,15 @@ export class Timer {
     if (this._state !== 'running') {
       throw new Error(`Cannot pause timer from state "${this._state}"`);
     }
+    // If time has already expired, resolve to completed rather than pausing.
+    // This guards against the race where the deadline passes before the
+    // animation frame fires but Pause is clicked before tick() is called.
+    if (this.remaining === 0) {
+      this.remainingAtStart = 0;
+      this.startedAt = null;
+      this._state = 'completed';
+      return;
+    }
     // Snapshot remaining time so we can resume from exactly here.
     this.remainingAtStart = this.remaining;
     this.startedAt = null;

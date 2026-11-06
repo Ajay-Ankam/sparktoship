@@ -87,6 +87,18 @@ describe('Timer – state transitions', () => {
     const timer = new Timer(60_000);
     expect(() => timer.resume()).toThrow(/Cannot resume/);
   });
+
+  it('pause() at exactly the deadline resolves to completed, not paused', () => {
+    // Reproduces the reviewer's probe: advance clock past duration, then call
+    // pause() before tick() fires.
+    const clock = makeClock();
+    const timer = new Timer(1_000, clock.now);
+    timer.start();
+    clock.advance(1_001);  // time has expired — no tick yet
+    timer.pause();         // should resolve expiry, not enter paused
+    expect(timer.state).toBe('completed');
+    expect(timer.remaining).toBe(0);
+  });
 });
 
 // ─── Remaining time ───────────────────────────────────────────────────────────

@@ -6,6 +6,7 @@ import { Timer, formatMs, parseInputMs, type TimerState } from './timer';
 const durationInput  = document.getElementById('duration-input')  as HTMLInputElement;
 const clockEl        = document.getElementById('clock')            as HTMLElement;
 const statusEl       = document.getElementById('status-label')     as HTMLElement;
+const progressBar    = document.getElementById('progress-bar')     as HTMLElement;
 const progressFill   = document.getElementById('progress-fill')   as HTMLElement;
 const completionEl   = document.getElementById('completion-banner') as HTMLElement;
 const btnStart       = document.getElementById('btn-start')        as HTMLButtonElement;
@@ -43,10 +44,11 @@ function render(): void {
   statusEl.textContent = labels[state] ?? '';
   statusEl.dataset['state'] = state;
 
-  // Progress bar
+  // Progress bar — update both visual fill and accessible value
   const pct = durationMs > 0 ? ((durationMs - remainingMs) / durationMs) * 100 : 0;
   progressFill.style.width = `${pct.toFixed(1)}%`;
   progressFill.dataset['state'] = state;
+  progressBar.setAttribute('aria-valuenow', Math.round(pct).toString());
 
   // Completion banner
   completionEl.classList.toggle('visible', state === 'completed');
